@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 84 25% 95%;
+    --foreground: 346 13% 21%;
+    --card: 70 25% 99%;
+    --card-foreground: 346 13% 21%;
+    --popover: 70 25% 99%;
+    --popover-foreground: 346 13% 21%;
+    --primary: 344 48% 82%;
+    --primary-foreground: 344 15% 14%;
+    --secondary: 86 25% 88%;
+    --secondary-foreground: 94 18% 28%;
+    --muted: 84 20% 92%;
+    --muted-foreground: 346 8% 43%;
+    --accent: 345 35% 91%;
+    --accent-foreground: 344 28% 34%;
+    --border: 84 16% 82%;
+    --input: 84 14% 76%;
+    --ring: 344 34% 58%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+  }
+
+  ::selection {
+    background: rgba(234, 184, 198, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
