@@ -12,6 +12,7 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjects[0].id)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<ProjectTask | null>(null)
   const currentDate = new Intl.DateTimeFormat("hu-HU", {
     year: "numeric",
     month: "long",
@@ -35,7 +36,28 @@ function App() {
     setSelectedProjectId(project.id)
   }
 
-  function createTask(task: Omit<ProjectTask, "id" | "projectId">) {
+  function openTaskCreation() {
+    setEditingTask(null)
+    setTaskDialogOpen(true)
+  }
+
+  function openTaskEditing(task: ProjectTask) {
+    if (task.projectId !== selectedProject.id) return
+
+    setEditingTask(task)
+    setTaskDialogOpen(true)
+  }
+
+  function saveTask(task: Omit<ProjectTask, "id" | "projectId">) {
+    if (editingTask) {
+      if (editingTask.projectId !== selectedProject.id) return
+
+      setTasks((current) => current.map((item) => (
+        item.id === editingTask.id ? { ...item, ...task } : item
+      )))
+      return
+    }
+
     setTasks((current) => [...current, { ...task, id: Date.now(), projectId: selectedProject.id }])
   }
 
@@ -64,12 +86,26 @@ function App() {
             onSelect={setSelectedProjectId}
             onCreate={() => setProjectDialogOpen(true)}
           />
-          <TaskList project={selectedProject} tasks={selectedTasks} onCreate={() => setTaskDialogOpen(true)} />
+          <TaskList
+            project={selectedProject}
+            tasks={selectedTasks}
+            allTasks={tasks}
+            onCreate={openTaskCreation}
+            onEdit={openTaskEditing}
+          />
         </div>
       </main>
 
       <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} onCreate={createProject} />
-      <TaskDialog open={taskDialogOpen} projectName={selectedProject.name} onOpenChange={setTaskDialogOpen} onCreate={createTask} />
+      <TaskDialog
+        open={taskDialogOpen}
+        project={selectedProject}
+        projects={projects}
+        tasks={tasks}
+        task={editingTask}
+        onOpenChange={setTaskDialogOpen}
+        onSubmit={saveTask}
+      />
     </div>
   )
 }

@@ -73,4 +73,13 @@ export const initialTasks: ProjectTask[] = [
     deadline: "2026-09-29",
     status: "Teendő",
   },
+  {
+    id: 7,
+    projectId: 3,
+    name: "Borítóvázlat véleményezése",
+    description: "A két borítóváltozat rövid átnézése és visszajelzése.",
+    assignee: "Nóra",
+    deadline: "2026-09-23",
+    status: "Folyamatban",
+  },
 ]

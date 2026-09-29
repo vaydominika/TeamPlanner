@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { hasWorkloadConflict } from "@/lib/workload"
 import type { Project, ProjectTask, TaskStatus } from "@/types"
 
 const statusStyles: Record<TaskStatus, string> = {
@@ -19,10 +20,12 @@ function formatDeadline(date: string) {
 type TaskListProps = {
   project: Project
   tasks: ProjectTask[]
+  allTasks: ProjectTask[]
   onCreate: () => void
+  onEdit: (task: ProjectTask) => void
 }
 
-export function TaskList({ project, tasks, onCreate }: TaskListProps) {
+export function TaskList({ project, tasks, allTasks, onCreate, onEdit }: TaskListProps) {
   return (
     <section aria-labelledby="tasks-heading" className="min-w-0">
       <Card className="overflow-hidden border-border bg-white/85 backdrop-blur-sm">
@@ -42,29 +45,56 @@ export function TaskList({ project, tasks, onCreate }: TaskListProps) {
                 <p className="mt-1 text-sm text-muted-foreground">Az első feladatot az „Új feladat” gombbal veheted fel.</p>
               </div>
             ) : (
-              tasks.map((task) => (
-                <article key={task.id} className="grid gap-4 px-2 py-5 sm:grid-cols-[1fr_auto] sm:px-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <h3 className="font-bold leading-snug">{task.name}</h3>
-                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", statusStyles[task.status])}>
-                        {task.status}
-                      </span>
+              tasks.map((task) => {
+                const isReadOnly = task.projectId !== project.id
+                const hasConflict = hasWorkloadConflict(allTasks, task.assignee, task.deadline, task.id)
+
+                return (
+                  <article
+                    key={task.id}
+                    className={cn(
+                      "grid gap-4 px-2 py-5 sm:grid-cols-[1fr_auto] sm:px-3",
+                      hasConflict && "rounded-xl bg-[#fff7f9]",
+                      isReadOnly && "bg-muted/55 text-muted-foreground",
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h3 className="font-bold leading-snug">{task.name}</h3>
+                        <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", statusStyles[task.status])}>
+                          {task.status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{task.description}</p>
+                      {hasConflict && (
+                        <p className="mt-2 text-xs font-semibold text-[#874b5c]">
+                          Sűrű határidők: {task.assignee} terhelése magas lehet ebben az időszakban.
+                        </p>
+                      )}
+                      {isReadOnly && (
+                        <p className="mt-2 text-xs font-semibold">Másik projekthez tartozik, ezért itt csak megtekinthető.</p>
+                      )}
                     </div>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{task.description}</p>
-                  </div>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:min-w-[220px] sm:self-center">
-                    <div>
-                      <dt className="text-xs font-semibold text-muted-foreground">Felelős</dt>
-                      <dd className="mt-1 text-sm font-bold">{task.assignee}</dd>
+                    <div className="flex min-w-[220px] flex-col gap-3 sm:self-center">
+                      <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+                        <div>
+                          <dt className="text-xs font-semibold text-muted-foreground">Felelős</dt>
+                          <dd className="mt-1 text-sm font-bold">{task.assignee}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold text-muted-foreground">Határidő</dt>
+                          <dd className="mt-1 text-sm font-bold">{formatDeadline(task.deadline)}</dd>
+                        </div>
+                      </dl>
+                      {!isReadOnly && (
+                        <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => onEdit(task)}>
+                          Szerkesztés
+                        </Button>
+                      )}
                     </div>
-                    <div>
-                      <dt className="text-xs font-semibold text-muted-foreground">Határidő</dt>
-                      <dd className="mt-1 text-sm font-bold">{formatDeadline(task.deadline)}</dd>
-                    </div>
-                  </dl>
-                </article>
-              ))
+                  </article>
+                )
+              })
             )}
           </div>
         </CardContent>
