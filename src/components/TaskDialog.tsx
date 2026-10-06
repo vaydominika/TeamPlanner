@@ -6,18 +6,23 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getWorkloadConflictTasks, OVERLOAD_TASK_LIMIT } from "@/lib/workload"
-import type { Project, ProjectTask, TaskStatus } from "@/types"
+import type { Project, ProjectTask, TaskStatus, User, WorkloadEntry } from "@/types"
 
 export type TaskDraft = Pick<ProjectTask, "name" | "description" | "assignee" | "deadline" | "status">
+export type TaskDialogMode = "create" | "manage" | "status"
 
 type TaskDialogProps = {
   open: boolean
   project: Project
   projects: Project[]
-  tasks: ProjectTask[]
+  workloadEntries: WorkloadEntry[]
   task: ProjectTask | null
+  mode: TaskDialogMode
+  assignees: User[]
+  visibleProjectIds: number[]
   onOpenChange: (open: boolean) => void
   onSubmit: (task: TaskDraft) => void
+  onDelete?: () => void
 }
 
 function formatDeadline(date: string) {
@@ -27,7 +32,19 @@ function formatDeadline(date: string) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
-export function TaskDialog({ open, project, projects, tasks, task, onOpenChange, onSubmit }: TaskDialogProps) {
+export function TaskDialog({
+  open,
+  project,
+  projects,
+  workloadEntries,
+  task,
+  mode,
+  assignees,
+  visibleProjectIds,
+  onOpenChange,
+  onSubmit,
+  onDelete,
+}: TaskDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [assignee, setAssignee] = useState("Nóra")
@@ -35,10 +52,10 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
   const [status, setStatus] = useState<TaskStatus>("Teendő")
 
   const isEditing = task !== null
-  const isReadOnly = task !== null && task.projectId !== project.id
+  const canManageDetails = mode !== "status"
   const conflictTasks = useMemo(
-    () => getWorkloadConflictTasks(tasks, assignee, deadline, task?.id),
-    [assignee, deadline, task?.id, tasks],
+    () => getWorkloadConflictTasks(workloadEntries, assignee, deadline, task?.id),
+    [assignee, deadline, task?.id, workloadEntries],
   )
   const isOverloaded = conflictTasks.length >= OVERLOAD_TASK_LIMIT
 
@@ -47,16 +64,23 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
 
     setName(task?.name ?? "")
     setDescription(task?.description ?? "")
-    setAssignee(task?.assignee ?? "Nóra")
+    setAssignee(task?.assignee ?? assignees[0]?.name ?? "")
     setDeadline(task?.deadline ?? "")
     setStatus(task?.status ?? "Teendő")
-  }, [open, task])
+  }, [assignees, open, task])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (isReadOnly || !name.trim() || !description.trim() || !deadline) return
+    if (!name.trim() || !description.trim() || !deadline) return
 
     onSubmit({ name: name.trim(), description: description.trim(), assignee, deadline, status })
+    onOpenChange(false)
+  }
+
+  function handleDelete() {
+    if (mode !== "manage" || !onDelete) return
+
+    onDelete()
     onOpenChange(false)
   }
 
@@ -64,10 +88,12 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Feladat szerkesztése" : "Új feladat létrehozása"}</DialogTitle>
+          <DialogTitle>
+            {mode === "status" ? "Feladat állapotának módosítása" : isEditing ? "Feladat szerkesztése" : "Új feladat létrehozása"}
+          </DialogTitle>
           <DialogDescription>
-            {isReadOnly
-              ? "Ez a feladat másik projekthez tartozik, ezért itt csak megtekinthető."
+            {mode === "status"
+              ? "Csak a hozzád rendelt feladat állapotát módosíthatod."
               : `A feladat az „${project.name}” projekthez tartozik.`}
           </DialogDescription>
         </DialogHeader>
@@ -80,7 +106,7 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
               onChange={(event) => setName(event.target.value)}
               placeholder="Például: Meghívó szövegének megírása"
               autoFocus
-              disabled={isReadOnly}
+              disabled={!canManageDetails}
               required
             />
           </div>
@@ -91,19 +117,19 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Mi a feladat pontos eredménye?"
-              disabled={isReadOnly}
+              disabled={!canManageDetails}
               required
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Felelős csapattag</Label>
-              <Select value={assignee} onValueChange={setAssignee} disabled={isReadOnly}>
+              <Select value={assignee} onValueChange={setAssignee} disabled={!canManageDetails}>
                 <SelectTrigger aria-label="Felelős csapattag"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Nóra">Nóra</SelectItem>
-                  <SelectItem value="Márk">Márk</SelectItem>
-                  <SelectItem value="Eszter">Eszter</SelectItem>
+                  {assignees.map((user) => (
+                    <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -117,7 +143,7 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
                 value={deadline}
                 onChange={(event) => setDeadline(event.target.value)}
                 placeholder="Például: 2026-10-02"
-                disabled={isReadOnly}
+                disabled={!canManageDetails}
                 required
               />
             </div>
@@ -131,14 +157,23 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
               </p>
               <ul className="mt-3 space-y-2 border-t border-[#edced7] pt-3">
                 {conflictTasks.map((conflictTask) => {
-                  const conflictProject = projects.find((item) => item.id === conflictTask.projectId)
+                  const canViewConflictProject = conflictTask.projectId !== null
+                    && visibleProjectIds.includes(conflictTask.projectId)
+                  const conflictProject = canViewConflictProject
+                    ? projects.find((item) => item.id === conflictTask.projectId)
+                    : null
                   const belongsToAnotherProject = conflictTask.projectId !== project.id
 
                   return (
                     <li key={conflictTask.id} className="text-xs leading-relaxed text-muted-foreground">
-                      <span className="font-bold text-foreground">{conflictTask.name}</span>
-                      {` · ${conflictProject?.name ?? "Ismeretlen projekt"} · ${formatDeadline(conflictTask.deadline)}`}
-                      {belongsToAnotherProject && " · Másik projekt, csak megtekinthető"}
+                      <span className="font-bold text-foreground">
+                        {canViewConflictProject ? conflictTask.name : "Másik projekt feladata"}
+                      </span>
+                      {canViewConflictProject && ` · ${conflictProject?.name ?? "Ismeretlen projekt"}`}
+                      {` · ${formatDeadline(conflictTask.deadline)}`}
+                      {belongsToAnotherProject && (canViewConflictProject
+                        ? " · Másik projekt, csak megtekinthető"
+                        : " · Csak a terhelési összesítésben látható")}
                     </li>
                   )
                 })}
@@ -148,7 +183,7 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
 
           <div className="space-y-2">
             <Label>Állapot</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)} disabled={isReadOnly}>
+            <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
               <SelectTrigger aria-label="Feladat állapota"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Teendő">Teendő</SelectItem>
@@ -157,9 +192,18 @@ export function TaskDialog({ open, project, projects, tasks, task, onOpenChange,
               </SelectContent>
             </Select>
           </div>
+          {mode === "manage" && onDelete && (
+            <div className="border-t border-border pt-4">
+              <Button type="button" variant="outline" className="text-[#874b5c]" onClick={handleDelete}>
+                Feladat törlése
+              </Button>
+            </div>
+          )}
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="ghost">{isReadOnly ? "Bezárás" : "Mégse"}</Button></DialogClose>
-            {!isReadOnly && <Button type="submit">{isEditing ? "Módosítások mentése" : "Feladat létrehozása"}</Button>}
+            <DialogClose asChild><Button type="button" variant="ghost">Mégse</Button></DialogClose>
+            <Button type="submit">
+              {mode === "status" ? "Állapot mentése" : isEditing ? "Módosítások mentése" : "Feladat létrehozása"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

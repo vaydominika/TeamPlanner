@@ -12,17 +12,29 @@ A TeamPlanner egy kis csapatoknak szánt, egyszerű projekt- és feladatkezelő 
 - új feladat létrehozása névvel, leírással, felelőssel, határidővel és állapottal;
 - a kiválasztott projekthez tartozó feladatok szerkesztése;
 - terhelési és határidőütközési figyelmeztetések megjelenítése;
+- több csapat létrehozása és csapatonkénti jogosultságok;
+- regisztráció, bejelentkezés és kijelentkezés;
 - három egyszerű feladatállapot kezelése: „Teendő”, „Folyamatban” és „Kész”.
 
 ## Fő felületi elemek
 
-A főoldal bal oldalán található a projektek rövid listája. A kiválasztott projekt feladatai a jobb oldali, nagyobb munkaterületen jelennek meg. Az „Új projekt” és az „Új feladat” gombok egyszerű párbeszédablakokat nyitnak meg. Kisebb képernyőn a két terület egymás alá rendeződik.
+A főoldal tetején található csapatválasztóval lehet az elérhető csapatok között váltani. A bal oldalon a kiválasztott csapat projektjei láthatók, a kiválasztott projekt feladatai pedig a jobb oldali, nagyobb munkaterületen jelennek meg. Az „Új csapat”, „Új projekt” és „Új feladat” gombok egyszerű párbeszédablakokat nyitnak meg. Kisebb képernyőn a két munkaterület egymás alá rendeződik.
 
 ## Terhelés és határidőütközések
 
-A frontend egyszerű, mintaadatokra épülő szabállyal jelzi a lehetséges túlterheltséget. Ha a kiválasztott csapattagnak már legalább két befejezetlen feladata van a megadott határidőt megelőző hét napban, a feladat létrehozásakor vagy szerkesztésekor figyelmeztetés jelenik meg. A jelzés a felelős és a határidő mező közelében látható, és nem tiltja le a mentést.
+Az alkalmazás egyszerű szabállyal jelzi a lehetséges túlterheltséget. Ha a kiválasztott csapattagnak már legalább két befejezetlen feladata van a megadott határidőt megelőző hét napban, a feladat létrehozásakor vagy szerkesztésekor figyelmeztetés jelenik meg. A jelzés a felelős és a határidő mező közelében látható, és nem tiltja le a mentést.
 
 A sűrű határidővel érintett meglévő feladatok a listában is visszafogott jelölést kapnak. A figyelmeztetésben más projektek kapcsolódó feladatai is megjelenhetnek a terhelés megértéséhez, de ezek csak megtekinthetők: az aktuális projektből nem módosíthatók, nem oszthatók át, az állapotuk nem változtatható meg, és nem törölhetők.
+
+## Csapatok és jogosultságok
+
+Minden regisztrált felhasználó egyszerű tagként indul, és több csapatot is létrehozhat. Aki létrehoz egy csapatot, annak a csapatnak automatikusan a vezetője lesz. A vezetői jogosultság csapatspecifikus: ugyanaz a felhasználó az egyik csapatban vezető, egy másikban egyszerű tag lehet.
+
+A csapat vezetője kezelheti a csapattagokat, projekteket hozhat létre, és a csapat projektjeiben feladatokat hozhat létre, szerkeszthet, kioszthat vagy törölhet. A csapattag megtekintheti a csapat projektjeit és feladatait, de csak a saját nevéhez rendelt feladatok állapotát módosíthatja. Más csapat projektjei és feladatai nem módosíthatók.
+
+Az alkalmazásban e-mail-címmel és jelszóval lehet regisztrálni, bejelentkezni és kijelentkezni. A csapatvezetői és tagi működés a két előre elkészített bemutató fiókkal is kipróbálható: Nóra a „Kreatív csapat” tagja, Eszter pedig ugyanennek a csapatnak a létrehozója és vezetője. A felület felső csapatválasztójával a felhasználó a saját csapatai között válthat.
+
+A jelszavak nem olvasható formában, hanem sózott scrypt hashként kerülnek az adatbázisba. A bejelentkezés után a backend szerveroldali munkamenetet hoz létre, a böngésző pedig `HttpOnly` és `SameSite=Lax` beállítású sütit kap. A jogosultságokat a felület mellett a backend is ellenőrzi, ezért a korlátozás nem csak a gombok elrejtésére vagy letiltására épül.
 
 ## Használt technológiák
 
@@ -32,7 +44,10 @@ A sűrű határidővel érintett meglévő feladatok a listában is visszafogott
 - Tailwind CSS
 - shadcn/ui szemléletű, újrafelhasználható felületi komponensek
 - Radix UI a párbeszédablakokhoz és választómezőkhöz
+- Express alapú REST API
+- Prisma ORM
+- SQLite adatbázis
 
-## Jelenlegi korlátok
+## Backend és jelenlegi korlátok
 
-Ez jelenleg kizárólag frontend prototípus. A terhelésvizsgálat egyszerű bemutatólogikát használ, nem teljes értékű ütemezési rendszer. A létrehozott projektek és feladatok csak az oldal megnyitásának idejére maradnak meg; nincs háttérrendszer, adatbázis, felhasználói bejelentkezés, API-kapcsolat vagy tartós adattárolás.
+Az MVP helyi Express backendet és SQLite adatbázist használ, így a projektek, feladatok, tagságok és munkamenetek az újraindítások között is megmaradnak. A React felület REST API-n keresztül olvassa és módosítja az adatokat. A terhelésvizsgálat továbbra is egyszerű bemutatólogika, nem teljes értékű ütemezési rendszer. Az auth megoldás az MVP helyi használatára készült; éles üzemeltetéshez HTTPS, e-mail-megerősítés, jelszó-visszaállítás, próbálkozáskorlátozás és további biztonsági védelem szükséges.

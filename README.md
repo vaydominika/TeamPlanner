@@ -1,15 +1,16 @@
 # TeamPlanner
 
-Egyszerű, magyar nyelvű projekt- és feladatkezelő frontend prototípus kis csapatoknak.
+Egyszerű, magyar nyelvű csapat-, projekt- és feladatkezelő MVP helyi adatbázissal és bejelentkezéssel.
 
 ## Technológiák
 
-React, TypeScript, Vite, Tailwind CSS, Radix UI és shadcn/ui szemléletű komponensek.
+React, TypeScript, Vite, Tailwind CSS, Radix UI, Express, Prisma és SQLite.
 
 ## Helyi indítás
 
 ```bash
 npm install
+npm run db:setup
 npm run dev
 ```
 

@@ -1,4 +1,4 @@
-import type { ProjectTask } from "@/types"
+import type { WorkloadEntry } from "@/types"
 
 export const OVERLOAD_TASK_LIMIT = 2
 const WORKLOAD_WINDOW_DAYS = 7
@@ -11,7 +11,7 @@ function parseDate(value: string) {
 }
 
 export function getWorkloadConflictTasks(
-  tasks: ProjectTask[],
+  tasks: WorkloadEntry[],
   assignee: string,
   deadline: string,
   excludedTaskId?: number,
@@ -31,7 +31,7 @@ export function getWorkloadConflictTasks(
 }
 
 export function hasWorkloadConflict(
-  tasks: ProjectTask[],
+  tasks: WorkloadEntry[],
   assignee: string,
   deadline: string,
   excludedTaskId?: number,

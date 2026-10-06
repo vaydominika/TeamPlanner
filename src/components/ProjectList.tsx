@@ -6,20 +6,34 @@ import type { Project, ProjectTask } from "@/types"
 type ProjectListProps = {
   projects: Project[]
   tasks: ProjectTask[]
-  selectedProjectId: number
+  selectedProjectId: number | null
+  canCreate: boolean
   onSelect: (projectId: number) => void
   onCreate: () => void
 }
 
-export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCreate }: ProjectListProps) {
+export function ProjectList({ projects, tasks, selectedProjectId, canCreate, onSelect, onCreate }: ProjectListProps) {
   return (
     <aside aria-labelledby="projects-heading" className="lg:sticky lg:top-7 lg:self-start">
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 id="projects-heading" className="text-xl font-bold tracking-tight">Projektek</h2>
-        <Button size="sm" variant="outline" onClick={onCreate}>Új projekt</Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onCreate}
+          disabled={!canCreate}
+          title={canCreate ? undefined : "Csak a csapat vezetője hozhat létre projektet."}
+        >
+          Új projekt
+        </Button>
       </div>
 
       <div className="space-y-3">
+        {projects.length === 0 && (
+          <p className="rounded-xl border border-border bg-white/70 px-4 py-6 text-sm text-muted-foreground">
+            Ebben a csapatban még nincs projekt.
+          </p>
+        )}
         {projects.map((project) => {
           const isSelected = selectedProjectId === project.id
           const taskCount = tasks.filter((task) => task.projectId === project.id).length

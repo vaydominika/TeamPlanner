@@ -1,26 +1,42 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import type { Project } from "@/types"
+
+export type ProjectDraft = Pick<Project, "name" | "description">
 
 type ProjectDialogProps = {
   open: boolean
+  project: Project | null
   onOpenChange: (open: boolean) => void
-  onCreate: (name: string, description: string) => void
+  onSubmit: (project: ProjectDraft) => void
+  onDelete?: () => void
 }
 
-export function ProjectDialog({ open, onOpenChange, onCreate }: ProjectDialogProps) {
+export function ProjectDialog({ open, project, onOpenChange, onSubmit, onDelete }: ProjectDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const isEditing = project !== null
+
+  useEffect(() => {
+    if (!open) return
+    setName(project?.name ?? "")
+    setDescription(project?.description ?? "")
+  }, [open, project])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim() || !description.trim()) return
-    onCreate(name.trim(), description.trim())
-    setName("")
-    setDescription("")
+    onSubmit({ name: name.trim(), description: description.trim() })
+    onOpenChange(false)
+  }
+
+  function handleDelete() {
+    if (!isEditing || !onDelete) return
+    onDelete()
     onOpenChange(false)
   }
 
@@ -28,8 +44,12 @@ export function ProjectDialog({ open, onOpenChange, onCreate }: ProjectDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Új projekt létrehozása</DialogTitle>
-          <DialogDescription>Adj rövid, könnyen felismerhető nevet és egy mondatos leírást a közös munkának.</DialogDescription>
+          <DialogTitle>{isEditing ? "Projekt kezelése" : "Új projekt létrehozása"}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? "Módosítsd a projekt alapadatait, vagy töröld a projektet."
+              : "Adj rövid, könnyen felismerhető nevet és egy mondatos leírást a közös munkának."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
@@ -40,9 +60,16 @@ export function ProjectDialog({ open, onOpenChange, onCreate }: ProjectDialogPro
             <Label htmlFor="project-description">Rövid leírás</Label>
             <Textarea id="project-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mivel foglalkozik a csapat ebben a projektben?" required />
           </div>
+          {isEditing && onDelete && (
+            <div className="border-t border-border pt-4">
+              <Button type="button" variant="outline" className="text-[#874b5c]" onClick={handleDelete}>
+                Projekt törlése
+              </Button>
+            </div>
+          )}
           <DialogFooter>
             <DialogClose asChild><Button type="button" variant="ghost">Mégse</Button></DialogClose>
-            <Button type="submit">Projekt létrehozása</Button>
+            <Button type="submit">{isEditing ? "Módosítások mentése" : "Projekt létrehozása"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

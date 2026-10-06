@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { hasWorkloadConflict } from "@/lib/workload"
-import type { Project, ProjectTask, TaskStatus } from "@/types"
+import type { Project, ProjectTask, TaskStatus, User, WorkloadEntry } from "@/types"
 
 const statusStyles: Record<TaskStatus, string> = {
   Teendő: "bg-[#f5e1e7] text-[#874b5c]",
@@ -20,12 +20,24 @@ function formatDeadline(date: string) {
 type TaskListProps = {
   project: Project
   tasks: ProjectTask[]
-  allTasks: ProjectTask[]
+  workloadEntries: WorkloadEntry[]
+  currentUser: User
+  canManageProject: boolean
   onCreate: () => void
   onEdit: (task: ProjectTask) => void
+  onManageProject: () => void
 }
 
-export function TaskList({ project, tasks, allTasks, onCreate, onEdit }: TaskListProps) {
+export function TaskList({
+  project,
+  tasks,
+  workloadEntries,
+  currentUser,
+  canManageProject,
+  onCreate,
+  onEdit,
+  onManageProject,
+}: TaskListProps) {
   return (
     <section aria-labelledby="tasks-heading" className="min-w-0">
       <Card className="overflow-hidden border-border bg-white/85 backdrop-blur-sm">
@@ -33,8 +45,24 @@ export function TaskList({ project, tasks, allTasks, onCreate, onEdit }: TaskLis
           <div>
             <h2 id="tasks-heading" className="text-2xl font-extrabold tracking-[-0.025em]">{project.name}</h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{project.description}</p>
+            {!canManageProject && (
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                A saját feladataid állapotát módosíthatod.
+              </p>
+            )}
           </div>
-          <Button className="self-start sm:self-center" onClick={onCreate}>Új feladat</Button>
+          <div className="flex flex-wrap gap-2 self-start sm:self-center">
+            {canManageProject && (
+              <Button variant="outline" onClick={onManageProject}>Projekt kezelése</Button>
+            )}
+            <Button
+              onClick={onCreate}
+              disabled={!canManageProject}
+              title={canManageProject ? undefined : "Ebben a projektben nem hozhatsz létre feladatot."}
+            >
+              Új feladat
+            </Button>
+          </div>
         </div>
 
         <CardContent className="p-3 sm:p-5">
@@ -42,12 +70,20 @@ export function TaskList({ project, tasks, allTasks, onCreate, onEdit }: TaskLis
             {tasks.length === 0 ? (
               <div className="px-3 py-12 text-center">
                 <p className="font-semibold">Ehhez a projekthez még nincs feladat.</p>
-                <p className="mt-1 text-sm text-muted-foreground">Az első feladatot az „Új feladat” gombbal veheted fel.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {canManageProject
+                    ? "Az első feladatot az „Új feladat” gombbal veheted fel."
+                    : "Az első feladatot a csapat vezetője veheti fel."}
+                </p>
               </div>
             ) : (
               tasks.map((task) => {
                 const isReadOnly = task.projectId !== project.id
-                const hasConflict = hasWorkloadConflict(allTasks, task.assignee, task.deadline, task.id)
+                const hasConflict = hasWorkloadConflict(workloadEntries, task.assignee, task.deadline, task.id)
+                const canChangeTask = !isReadOnly && (
+                  canManageProject
+                  || task.assignee === currentUser.name
+                )
 
                 return (
                   <article
@@ -86,9 +122,9 @@ export function TaskList({ project, tasks, allTasks, onCreate, onEdit }: TaskLis
                           <dd className="mt-1 text-sm font-bold">{formatDeadline(task.deadline)}</dd>
                         </div>
                       </dl>
-                      {!isReadOnly && (
+                      {canChangeTask && (
                         <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => onEdit(task)}>
-                          Szerkesztés
+                          {canManageProject ? "Szerkesztés" : "Állapot módosítása"}
                         </Button>
                       )}
                     </div>
