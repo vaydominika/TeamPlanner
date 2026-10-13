@@ -87,3 +87,31 @@ export function updateTask(taskId: number, task: TaskDraft | Pick<ProjectTask, "
 export function deleteTask(taskId: number) {
   return apiRequest<void>(`/api/tasks/${taskId}`, { method: "DELETE" })
 }
+
+export type CalendarStatus = {
+  configured: boolean
+  connected: boolean
+  provider: string | null
+  pendingCount: number
+  message: string | null
+}
+
+export function getCalendarStatus() {
+  return apiRequest<CalendarStatus>("/api/integrations/calendar")
+}
+
+export function connectCalendar() {
+  return apiRequest<{ url: string }>("/api/integrations/calendar/connect", { method: "POST" })
+}
+
+export function disconnectCalendar() {
+  return apiRequest<{ message: string }>("/api/integrations/calendar", { method: "DELETE" })
+}
+
+export function syncTaskCalendar(taskId: number) {
+  return apiRequest<{ message: string }>(`/api/tasks/${taskId}/calendar`, { method: "POST" })
+}
+
+export function generateTaskSummary(taskId: number) {
+  return apiRequest<{ summary: string }>(`/api/tasks/${taskId}/summary`, { method: "POST" })
+}

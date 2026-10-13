@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getWorkloadConflictTasks, OVERLOAD_TASK_LIMIT } from "@/lib/workload"
+import { getUserLabel } from "@/lib/utils"
 import type { Project, ProjectTask, TaskStatus, User, WorkloadEntry } from "@/types"
 
-export type TaskDraft = Pick<ProjectTask, "name" | "description" | "assignee" | "deadline" | "status">
+export type TaskDraft = Pick<ProjectTask, "name" | "description" | "deadline" | "status"> & { assigneeId: string }
 export type TaskDialogMode = "create" | "manage" | "status"
 
 type TaskDialogProps = {
@@ -47,33 +48,34 @@ export function TaskDialog({
 }: TaskDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [assignee, setAssignee] = useState("Nóra")
+  const [assigneeId, setAssigneeId] = useState("")
   const [deadline, setDeadline] = useState("")
   const [status, setStatus] = useState<TaskStatus>("Teendő")
 
   const isEditing = task !== null
   const canManageDetails = mode !== "status"
   const conflictTasks = useMemo(
-    () => getWorkloadConflictTasks(workloadEntries, assignee, deadline, task?.id),
-    [assignee, deadline, task?.id, workloadEntries],
+    () => getWorkloadConflictTasks(workloadEntries, assigneeId, deadline, task?.id),
+    [assigneeId, deadline, task?.id, workloadEntries],
   )
   const isOverloaded = conflictTasks.length >= OVERLOAD_TASK_LIMIT
+  const assigneeName = assignees.find((user) => user.id === assigneeId)?.name ?? task?.assignee ?? ""
 
   useEffect(() => {
     if (!open) return
 
     setName(task?.name ?? "")
     setDescription(task?.description ?? "")
-    setAssignee(task?.assignee ?? assignees[0]?.name ?? "")
+    setAssigneeId(task ? task.assigneeId ?? "" : assignees[0]?.id ?? "")
     setDeadline(task?.deadline ?? "")
     setStatus(task?.status ?? "Teendő")
   }, [assignees, open, task])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!name.trim() || !description.trim() || !deadline) return
+    if (!name.trim() || !description.trim() || !deadline || (canManageDetails && !assigneeId)) return
 
-    onSubmit({ name: name.trim(), description: description.trim(), assignee, deadline, status })
+    onSubmit({ name: name.trim(), description: description.trim(), assigneeId, deadline, status })
     onOpenChange(false)
   }
 
@@ -124,11 +126,11 @@ export function TaskDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Felelős csapattag</Label>
-              <Select value={assignee} onValueChange={setAssignee} disabled={!canManageDetails}>
-                <SelectTrigger aria-label="Felelős csapattag"><SelectValue /></SelectTrigger>
+              <Select value={assigneeId} onValueChange={setAssigneeId} disabled={!canManageDetails}>
+                <SelectTrigger aria-label="Felelős csapattag"><SelectValue placeholder="Válassz csapattagot" /></SelectTrigger>
                 <SelectContent>
                   {assignees.map((user) => (
-                    <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                    <SelectItem key={user.id} value={user.id}>{getUserLabel(user, assignees)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -153,7 +155,7 @@ export function TaskDialog({
             <div role="status" aria-live="polite" className="rounded-xl border border-[#e7b9c6] bg-[#fff4f7] p-4">
               <p className="text-sm font-bold text-foreground">Terhelési figyelmeztetés</p>
               <p className="mt-1 text-sm leading-relaxed text-[#70434f]">
-                {assignee} a választott határidő előtt túlterhelt lehet: már {conflictTasks.length} befejezetlen feladata esik az előző hét napra. A feladat ettől még menthető.
+                {assigneeName} a választott határidő előtt túlterhelt lehet: már {conflictTasks.length} befejezetlen feladata esik az előző hét napra. A feladat ettől még menthető.
               </p>
               <ul className="mt-3 space-y-2 border-t border-[#edced7] pt-3">
                 {conflictTasks.map((conflictTask) => {

@@ -1,4 +1,4 @@
-import type { Project, ProjectTask, Team, User } from "@/types"
+import type { Project, ProjectTask, Team, User } from "../types.js"
 
 export function canViewProject(user: User, project: Project) {
   return project.managerId === user.id || project.memberIds.includes(user.id)
@@ -20,6 +20,6 @@ export function canUpdateAssignedTaskStatus(user: User, project: Project, task: 
   return (
     canViewProject(user, project)
     && task.projectId === project.id
-    && task.assignee === user.name
+    && task.assigneeId === user.id
   )
 }

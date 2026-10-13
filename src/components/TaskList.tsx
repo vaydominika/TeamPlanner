@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { TaskTools } from "@/components/TaskTools"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { hasWorkloadConflict } from "@/lib/workload"
@@ -79,10 +80,10 @@ export function TaskList({
             ) : (
               tasks.map((task) => {
                 const isReadOnly = task.projectId !== project.id
-                const hasConflict = hasWorkloadConflict(workloadEntries, task.assignee, task.deadline, task.id)
+                const hasConflict = hasWorkloadConflict(workloadEntries, task.assigneeId, task.deadline, task.id)
                 const canChangeTask = !isReadOnly && (
                   canManageProject
-                  || task.assignee === currentUser.name
+                  || task.assigneeId === currentUser.id
                 )
 
                 return (
@@ -102,6 +103,7 @@ export function TaskList({
                         </span>
                       </div>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{task.description}</p>
+                      <TaskTools key={JSON.stringify([task, project.name])} taskId={task.id} />
                       {hasConflict && (
                         <p className="mt-2 text-xs font-semibold text-[#874b5c]">
                           Sűrű határidők: {task.assignee} terhelése magas lehet ebben az időszakban.

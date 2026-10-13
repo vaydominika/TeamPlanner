@@ -1,6 +1,7 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { DatabaseSync } from "node:sqlite"
+import { readFileSync } from "node:fs"
 
 const directory = path.dirname(fileURLToPath(import.meta.url))
 const database = new DatabaseSync(path.join(directory, "dev.db"))
@@ -15,8 +16,6 @@ database.exec(`
     "passwordHash" TEXT NOT NULL,
     "role" TEXT NOT NULL
   );
-
-  CREATE UNIQUE INDEX IF NOT EXISTS "User_name_key" ON "User"("name");
 
   CREATE TABLE IF NOT EXISTS "Team" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -97,4 +96,22 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS "Session_userId_idx" ON "Session"("userId");
 `)
 
+// The local setup remains idempotent and applies the same integration DDL as Prisma.
+database.exec(readFileSync(path.join(directory, "migrations/20261013120000_add_integrations/migration.sql"), "utf8")
+  .replaceAll('CREATE TABLE "', 'CREATE TABLE IF NOT EXISTS "')
+  .replaceAll('CREATE UNIQUE INDEX "', 'CREATE UNIQUE INDEX IF NOT EXISTS "')
+  .replaceAll('CREATE INDEX "', 'CREATE INDEX IF NOT EXISTS "'))
+const taskColumns = database.prepare('PRAGMA table_info("Task")').all() as Array<{ name: string }>
+if (!taskColumns.some((column) => column.name === "assigneeId")) {
+  database.exec("BEGIN")
+  try {
+    database.exec(readFileSync(path.join(directory, "migrations/20261013130000_allow_duplicate_user_names/migration.sql"), "utf8"))
+    database.exec("COMMIT")
+  } catch (error) {
+    database.exec("ROLLBACK")
+    throw error
+  }
+} else {
+  database.exec('DROP INDEX IF EXISTS "User_name_key"')
+}
 database.close()

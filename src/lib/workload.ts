@@ -1,4 +1,4 @@
-import type { WorkloadEntry } from "@/types"
+import type { WorkloadEntry } from "../types.js"
 
 export const OVERLOAD_TASK_LIMIT = 2
 const WORKLOAD_WINDOW_DAYS = 7
@@ -12,18 +12,18 @@ function parseDate(value: string) {
 
 export function getWorkloadConflictTasks(
   tasks: WorkloadEntry[],
-  assignee: string,
+  assigneeId: string | null,
   deadline: string,
   excludedTaskId?: number,
 ) {
   const deadlineDate = parseDate(deadline)
-  if (!deadlineDate) return []
+  if (!deadlineDate || !assigneeId) return []
 
   const windowStart = new Date(deadlineDate)
   windowStart.setDate(windowStart.getDate() - WORKLOAD_WINDOW_DAYS)
 
   return tasks.filter((task) => {
-    if (task.id === excludedTaskId || task.assignee !== assignee || task.status === "Kész") return false
+    if (task.id === excludedTaskId || task.assigneeId !== assigneeId || task.status === "Kész") return false
 
     const taskDeadline = parseDate(task.deadline)
     return taskDeadline !== null && taskDeadline >= windowStart && taskDeadline <= deadlineDate
@@ -32,9 +32,9 @@ export function getWorkloadConflictTasks(
 
 export function hasWorkloadConflict(
   tasks: WorkloadEntry[],
-  assignee: string,
+  assigneeId: string | null,
   deadline: string,
   excludedTaskId?: number,
 ) {
-  return getWorkloadConflictTasks(tasks, assignee, deadline, excludedTaskId).length >= OVERLOAD_TASK_LIMIT
+  return getWorkloadConflictTasks(tasks, assigneeId, deadline, excludedTaskId).length >= OVERLOAD_TASK_LIMIT
 }

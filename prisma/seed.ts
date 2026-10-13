@@ -43,11 +43,13 @@ async function ensureTeam(leaderId: string, name: string, description: string, m
 }
 
 async function ensureTask(projectId: number, task: DemoTask) {
+  const demoAssigneeIds: Record<string, string> = { "Nóra": "nora", "Márk": "mark", "Eszter": "eszter", "Dániel": "daniel" }
+  const data = { ...task, assigneeId: demoAssigneeIds[task.assignee] }
   const existingTask = await prisma.task.findFirst({ where: { projectId, name: task.name } })
   if (existingTask) {
-    await prisma.task.update({ where: { id: existingTask.id }, data: task })
+    await prisma.task.update({ where: { id: existingTask.id }, data })
   } else {
-    await prisma.task.create({ data: { projectId, ...task } })
+    await prisma.task.create({ data: { projectId, ...data } })
   }
 }
 

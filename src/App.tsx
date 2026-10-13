@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { AuthForm } from "@/components/AuthForm"
+import { CalendarDialog } from "@/components/CalendarDialog"
 import { ProjectDialog, type ProjectDraft } from "@/components/ProjectDialog"
 import { ProjectList } from "@/components/ProjectList"
 import { TaskDialog, type TaskDialogMode, type TaskDraft } from "@/components/TaskDialog"
@@ -53,6 +54,16 @@ export default function App() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [taskDialogMode, setTaskDialogMode] = useState<TaskDialogMode>("create")
   const [editingTask, setEditingTask] = useState<ProjectTask | null>(null)
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
+  const [calendarNotice, setCalendarNotice] = useState("")
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const outcome = url.searchParams.get("calendar")
+    if (!outcome) return
+    url.searchParams.delete("calendar")
+    window.history.replaceState(null, "", url.toString())
+    setCalendarNotice(outcome === "connected" ? "A Google Naptár csatlakoztatva." : "A naptárcsatlakozás nem sikerült. Próbáld újra a Naptárkapcsolat ablakban.")
+  }, [])
 
   function applySession(nextSession: SessionData, preferredTeamId?: number | null, preferredProjectId?: number | null) {
     setSession(nextSession)
@@ -98,6 +109,7 @@ export default function App() {
   }, [selectedTeam, session])
 
   function closeEditors() {
+    setCalendarDialogOpen(false)
     setTeamDialogOpen(false)
     setMembersDialogOpen(false)
     setProjectDialogOpen(false)
@@ -273,11 +285,13 @@ export default function App() {
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={handleLogout}>Kijelentkezés</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setCalendarDialogOpen(true)}>Naptárkapcsolat</Button>
           </div>
         </nav>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-9">
+        {calendarNotice && <p role="status" className="mb-5 rounded-xl border border-border bg-white/85 px-4 py-3 text-sm">{calendarNotice}</p>}
         {errorMessage && <div role="alert" className="mb-5 rounded-xl border border-[#e7b9c6] bg-[#fff4f7] px-4 py-3 text-sm font-semibold text-[#70434f]">{errorMessage}</div>}
 
         {session.teams.length === 0 || !selectedTeam ? (
@@ -327,6 +341,7 @@ export default function App() {
       </main>
 
       <TeamDialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen} onSubmit={saveTeam} />
+      <CalendarDialog key={currentUser.id} open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen} />
       <ProjectDialog open={projectDialogOpen} project={editingProject} onOpenChange={setProjectDialogOpen} onSubmit={saveProject} onDelete={editingProject ? removeProject : undefined} />
 
       {selectedTeam && (

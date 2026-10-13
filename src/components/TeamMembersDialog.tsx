@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { Team, User } from "@/types"
+import { getUserLabel } from "@/lib/utils"
 
 type TeamMembersDialogProps = {
   open: boolean
@@ -45,7 +46,7 @@ export function TeamMembersDialog({ open, team, users, onOpenChange, onSave }: T
               return (
                 <label key={user.id} className="flex items-center justify-between gap-4 px-4 py-3">
                   <span>
-                    <span className="block text-sm font-bold">{user.name}</span>
+                    <span className="block text-sm font-bold">{getUserLabel(user, users)}</span>
                     <span className="block text-xs text-muted-foreground">{isLeader ? "A csapat vezetője" : "Tag"}</span>
                   </span>
                   <input
@@ -54,7 +55,7 @@ export function TeamMembersDialog({ open, team, users, onOpenChange, onSave }: T
                     disabled={isLeader}
                     onChange={() => toggleMember(user.id)}
                     className="h-4 w-4 accent-[#eab8c6]"
-                    aria-label={`${user.name} csapattagsága`}
+                    aria-label={`${getUserLabel(user, users)} csapattagsága`}
                   />
                 </label>
               )

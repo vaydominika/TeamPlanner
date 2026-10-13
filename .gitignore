@@ -5,3 +5,7 @@ dist
 prisma/*.db
 prisma/*.db-journal
 prisma/generated
+.env
+.env.*
+!.env.example
+.integration-test-*
