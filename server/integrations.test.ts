@@ -12,7 +12,7 @@ import { decryptSecret, encryptSecret, IntegrationError } from "./integration-se
 import { OpenAISummaryProvider, summaryInput } from "./summary.js"
 import { hashSessionToken } from "./auth.js"
 
-const context = { name: "Meghívó", description: "A helyszín adataival.", deadline: "2026-10-31", status: "Teendő", assignee: "Nóra", project: { name: "Találkozó" } }
+const context = { name: "Meghívó", description: "A helyszín adataival.", deadline: "2026-10-31", estimatedHours: 2.5, status: "Teendő", assignee: "Nóra", project: { name: "Találkozó" } }
 const credentials: CalendarCredentials = { accessToken: "private-access", refreshToken: "private-refresh", expiresAt: Date.now() + 3600000 }
 const directory = mkdtempSync(path.join(process.cwd(), ".integration-test-"))
 const databasePath = path.join(directory, "test.db")
@@ -38,6 +38,7 @@ before(async () => {
   `)
   database.exec(readFileSync("prisma/migrations/20261013120000_add_integrations/migration.sql", "utf8"))
   database.exec(readFileSync("prisma/migrations/20261013130000_allow_duplicate_user_names/migration.sql", "utf8"))
+  database.exec(readFileSync("prisma/migrations/20261103120000_add_estimated_hours/migration.sql", "utf8"))
   database.exec('CREATE UNIQUE INDEX User_email_key ON User(email)')
   database.close()
   await prisma.user.create({ data: { id: "owner", name: "Eszter", email: "test@example.com", passwordHash: "hash", role: "team-member" } })
@@ -245,7 +246,16 @@ test("HTTP végpontok bejelentkezést és projektjogosultságot ellenőriznek", 
     assert.ok((await missingConfig.json() as { message: string }).message.includes("nincs beállítva"))
     const update = await fetch(`${base}/api/tasks/${task.id}`, { method: "PATCH", headers: ownerHeaders, body: JSON.stringify({ ...context, name: "Mentés szolgáltatás nélkül", assigneeId: "owner" }) })
     assert.equal(update.status, 200)
-    assert.equal((await update.json() as { name: string }).name, "Mentés szolgáltatás nélkül")
+    const updatedTask = await update.json() as { name: string; estimatedHours: number }
+    assert.equal(updatedTask.name, "Mentés szolgáltatás nélkül")
+    assert.equal(updatedTask.estimatedHours, 2.5)
+    for (const estimatedHours of [undefined, null, "2", -1, 0, 0.25, 1.2, 1000.5]) {
+      const invalid = await fetch(`${base}/api/projects/1/tasks`, { method: "POST", headers: ownerHeaders, body: JSON.stringify({ ...context, assigneeId: "owner", estimatedHours }) })
+      assert.equal(invalid.status, 400)
+    }
+    const createdResponse = await fetch(`${base}/api/projects/1/tasks`, { method: "POST", headers: ownerHeaders, body: JSON.stringify({ ...context, assigneeId: "owner", estimatedHours: 4.5 }) })
+    assert.equal(createdResponse.status, 201)
+    assert.equal((await createdResponse.json() as { estimatedHours: number }).estimatedHours, 4.5)
     assert.equal((await fetch(`${base}/api/integrations/calendar`)).status, 401)
     const status = await (await fetch(`${base}/api/integrations/calendar`, { headers: ownerHeaders })).json()
     assert.ok(!JSON.stringify(status).includes("private"))
@@ -270,7 +280,42 @@ test("HTTP végpontok bejelentkezést és projektjogosultságot ellenőriznek", 
     assert.equal(assignedTask.assigneeId, twin.id)
     assert.equal(assignedTask.assignee, "Eszter")
     assert.equal((await fetch(`${base}/api/tasks/${task.id}`, { method: "PATCH", headers: twinHeaders, body: JSON.stringify({ status: "Kész" }) })).status, 200)
+    const memberUpdate = await fetch(`${base}/api/tasks/${task.id}`, { method: "PATCH", headers: twinHeaders, body: JSON.stringify({ status: "Folyamatban", estimatedHours: 999 }) })
+    assert.equal(memberUpdate.status, 200)
+    assert.equal((await memberUpdate.json() as { estimatedHours: number }).estimatedHours, context.estimatedHours)
     assert.equal((await fetch(`${base}/api/tasks/${task.id}`, { method: "PATCH", headers: otherTwinHeaders, body: JSON.stringify({ status: "Teendő" }) })).status, 403)
+
+    // A member can create a personal project without becoming a manager elsewhere.
+    const projectDraft = { name: "Saját projekt", description: "A csapattag önálló projektje." }
+    assert.equal((await fetch(`${base}/api/projects`, { method: "POST", headers: twinHeaders, body: JSON.stringify({ ...projectDraft, teamId: 1 }) })).status, 403)
+    const personalTeamResponse = await fetch(`${base}/api/teams`, { method: "POST", headers: twinHeaders, body: JSON.stringify({ name: "Saját csapat", description: "Saját projektek résztvevői." }) })
+    assert.equal(personalTeamResponse.status, 201)
+    const personalTeam = await personalTeamResponse.json() as { id: number; memberIds: string[] }
+    assert.deepEqual(personalTeam.memberIds, [twin.id])
+    const personalProjectResponse = await fetch(`${base}/api/projects`, { method: "POST", headers: twinHeaders, body: JSON.stringify({ ...projectDraft, teamId: personalTeam.id, managerId: "owner" }) })
+    assert.equal(personalProjectResponse.status, 201)
+    const personalProject = await personalProjectResponse.json() as { id: number; managerId: string }
+    assert.equal(personalProject.managerId, twin.id)
+    assert.equal((await fetch(`${base}/api/projects/${personalProject.id}`, { method: "PATCH", headers: twinHeaders, body: JSON.stringify(projectDraft) })).status, 200)
+    assert.equal((await fetch(`${base}/api/projects/1`, { method: "PATCH", headers: twinHeaders, body: JSON.stringify(projectDraft) })).status, 403)
+    const personalSessionResponse = await fetch(`${base}/api/session`, { headers: twinHeaders })
+    const personalSession = await personalSessionResponse.json() as { projects: Array<{ id: number }> }
+    assert.ok(personalSession.projects.some((project) => project.id === personalProject.id))
+    assert.ok(personalSession.projects.some((project) => project.id === 1))
+
+    // The common project list must include accessible projects from multiple teams.
+    const secondTeam = await prisma.team.create({ data: { name: "Másik csapat", description: "", leaderId: "outsider", members: { create: [{ userId: "outsider" }, { userId: "owner" }] } } })
+    const secondProject = await prisma.project.create({ data: { name: "Másik csapat projektje", description: "", managerId: "outsider", teamId: secondTeam.id } })
+    const hiddenTeam = await prisma.team.create({ data: { name: "Rejtett csapat", description: "", leaderId: "outsider", members: { create: { userId: "outsider" } } } })
+    const hiddenProject = await prisma.project.create({ data: { name: "Rejtett projekt", description: "", managerId: "outsider", teamId: hiddenTeam.id } })
+    const sessionResponse = await fetch(`${base}/api/session`, { headers: ownerHeaders })
+    assert.equal(sessionResponse.status, 200)
+    const session = await sessionResponse.json() as { projects: Array<{ id: number; memberIds: string[] }> }
+    assert.ok(session.projects.some((project) => project.id === 1))
+    assert.ok(session.projects.some((project) => project.id === secondProject.id))
+    assert.ok(!session.projects.some((project) => project.id === hiddenProject.id))
+    assert.ok(session.projects.find((project) => project.id === secondProject.id)?.memberIds.includes("outsider"))
+    assert.ok(!session.projects.find((project) => project.id === 1)?.memberIds.includes("outsider"))
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     await appPrisma.$disconnect()

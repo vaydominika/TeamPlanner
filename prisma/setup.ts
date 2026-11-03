@@ -114,4 +114,7 @@ if (!taskColumns.some((column) => column.name === "assigneeId")) {
 } else {
   database.exec('DROP INDEX IF EXISTS "User_name_key"')
 }
+if (!taskColumns.some((column) => column.name === "estimatedHours")) {
+  database.exec(readFileSync(path.join(directory, "migrations/20261103120000_add_estimated_hours/migration.sql"), "utf8"))
+}
 database.close()

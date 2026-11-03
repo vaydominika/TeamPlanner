@@ -43,26 +43,6 @@ Keep the amount of content small. This is an MVP, so do not add additional featu
 
 Keep the component structure reasonably clean and reusable, but do not overengineer the application.
 
-Documentation:\
-Create a Markdown documentation file inside the `docs` folder describing the MVP.
-
-For example:\
-`docs/mvp.md`
-
-The documentation must be written in Hungarian and briefly describe:
-
-- az alkalmazás célját,
-- a jelenlegi MVP funkcióit,
-- a fő felületi elemeket,
-- a használt technológiákat,
-- és azt, hogy ez jelenleg csak frontend prototípus.
-
-Also create or update a small `README.md` in the project root.
-
-The README should also be written in Hungarian and only contain a short introduction, the technologies used, how to start the project locally, and a reference to the more detailed documentation inside `docs/mvp.md`.
-
-Keep the README concise.
-
 Before implementing, inspect the existing project structure and dependencies so the solution fits naturally into the current codebase instead of replacing or restructuring unnecessary parts.
 
 ## Workload and deadline conflict detection
@@ -92,13 +72,6 @@ Add the following behavior:
 - Make the read-only state visually understandable with subtle styling or explanatory text, but do not use icons.
 
 Keep all visible application text in Hungarian. Keep file names, component names, variable names, interfaces, and other code identifiers in English.
-
-Update the existing documentation in `docs` as well. Add a short Hungarian section describing:
-
-- terhelés felismerése,
-- határidőütközések,
-- a túlterheltségi figyelmeztetés szabálya,
-- és azt, hogy más projekthez tartozó feladat csak megtekinthető, nem módosítható.
 
 Do not add unrelated features, analytics, charts, notifications, AI functionality, or complex scheduling logic. Keep this as a simple frontend MVP extension.
 
@@ -153,17 +126,6 @@ Keep the current implementation, structure, and cozy visual style. Continue usin
 - Do not introduce icons.
 - All visible UI text must remain in Hungarian.
 - Keep code identifiers, component names, file names, and folder names in English.
-
-### Documentation
-
-Update the existing documentation in the `docs` folder to describe:
-
-- the two roles,
-- their permissions,
-- project-specific access restrictions,
-- and how role switching works in the MVP.
-
-Update the `README.md` only if necessary.
 
 **Important:** This is still a frontend-only MVP. Do not implement authentication, a database, API endpoints, or complex authorization infrastructure. Keep the changes minimal, reuse existing components and logic wherever possible, and avoid unrelated refactoring.
 
@@ -302,23 +264,67 @@ Do not add icons unless the existing design now consistently uses them.
 
 Do not turn the summary feature into a chat interface.
 
-### Documentation
-
-Update the existing documentation in the `docs` folder in Hungarian.
-
-Document:
-
-- the external calendar integration,
-- what task information is synchronized,
-- how calendar authentication/configuration works,
-- the LLM task summary feature,
-- what task data is sent to the LLM,
-- required environment variables,
-- new backend endpoints,
-- database changes or migrations,
-- important security considerations,
-- failure and fallback behavior.
-
-Also update the root `README.md` if new setup steps or environment variables are required.
-
 Before implementing anything, inspect the existing frontend, backend, database schema, authentication/authorization logic, and documentation. Follow the current project's architecture instead of introducing a separate parallel structure.
+
+## Simplify navigation, refine permissions, and complete task planning
+
+Refine the existing full-stack TeamPlanner application. Team members must be able to create their own projects, and task editing must use an icon as specified below.
+
+Inspect the current implementation before making changes. Preserve the existing React and TypeScript frontend, Express backend, Prisma ORM, SQLite database, reusable UI components, and cozy visual style. Keep the scope focused and avoid unrelated restructuring. All visible application text must remain in Hungarian; keep code identifiers and file names in English.
+
+### Registration and user identity
+
+Allow multiple users to register with the same display name. The registration field labeled „Név” must not be unique; email addresses must remain unique. Update the database schema, registration validation, and error messages accordingly.
+
+Use stable user identifiers for assignments, permissions, and workload calculations so users with identical names remain separate. Preserve existing assignments when migrating the database, and make duplicate names distinguishable in member and assignee selection lists.
+
+Remove the „Bemutató fiók kitöltése” section and its demo-account autofill buttons from the sign-in form.
+
+### Project navigation and project-specific permissions
+
+Remove the separate „Aktív csapat” dropdown and the extra team-selection step. The existing sidebar project list must display every project the current user is allowed to access, including projects associated with different teams. Users should switch projects directly from that list.
+
+Keep task lists, assignment options, role labels, and available actions consistent with the selected project. Preserve member management in a suitable location near the selected project's controls. Existing team records may remain as an internal implementation detail; users should not need to create or select a separate team before creating a project.
+
+Every authenticated user must be able to create a project of their own, even if they are only a team member in another project. The creator becomes the project manager of the new project. This must not grant them additional permissions in projects owned by somebody else.
+
+Project managers may create, edit, assign, and delete tasks in projects they manage. Team members may view accessible projects and update the status of tasks assigned to them. Enforce these restrictions in frontend logic and server-side authorization.
+
+Tasks from another project may appear as read-only workload context, but they must not be edited, reassigned, deleted, or have their status changed from the current project's context. A user who also manages that other project may switch to it and manage its tasks there. Do not reveal inaccessible project names or task titles.
+
+### Deadlines, estimated working hours, and workload warnings
+
+Support the complete planning workflow: create a project, add tasks, assign team members, specify deadlines and estimated working hours, and check workload before saving an assignment.
+
+Add an editable „Becsült munkaóra” field to task creation and editing, display the estimate in the task list, validate it on the backend, and persist it in SQLite using the existing migration approach. Preserve existing tasks and give them a default estimate that managers can revise.
+
+Continue warning when a selected member already has overlapping unfinished tasks around the new task's deadline. Keep the warning close to the assignment and deadline inputs and show it before the task is saved. Include the estimated-hour total for the relevant tasks without double-counting the task being edited. Keep the existing simple workload rule clear; do not present the calculation as AI-based scheduling or claim an hourly capacity threshold unless one is actually implemented.
+
+### Task actions and interface cleanup
+
+Replace the task's text-based editing button with a small pencil icon placed next to the task name, where the editing action is easier to discover. Preserve the existing edit or status-update behavior and permission checks. Provide Hungarian hover text and an accessible label. This is a specific exception to the earlier instruction to avoid icons; do not add unrelated decorative icons.
+
+Remove this sentence from the task interface:
+
+> Az összefoglalás elküldi ennek a feladatnak az adatait a szöveges szolgáltatásnak.
+
+### Google Calendar and Gemini summaries
+
+Preserve the Google Calendar connection and task synchronization, including secure backend authentication, connection state, event updates, duplicate prevention, deletion handling, and project-access checks.
+
+Use a Gemini model with an available free API tier for concise, on-demand Hungarian task summaries. The latest requested model configuration is:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Read `GEMINI_API_KEY` only on the backend and never expose real credentials in source control or output. Allow changing supported Gemini models through environment configuration. Do not automatically enable paid billing or switch to another provider.
+
+Generate a summary only after the user selects „Összefoglaló készítése”. Send only the necessary task title, description, deadline, status, assignee display name, and project name. Request a short Hungarian summary of the required work, relevant context, and deadline. Do not introduce a chatbot, background AI requests, or direct database access for the model.
+
+Handle missing configuration, unavailable models, intermittent provider failures such as HTTP 503, quota errors, timeouts, and invalid responses with useful Hungarian feedback. Task management must remain usable when summarization or calendar synchronization is unavailable.
+
+### Verification
+
+Run checks appropriate to the changes. Verify that same-name users retain separate permissions and workloads, members can create their own projects without gaining access to others' projects, project switching uses the correct task and assignee context, estimated hours persist correctly, and external-service failures do not break normal task management.

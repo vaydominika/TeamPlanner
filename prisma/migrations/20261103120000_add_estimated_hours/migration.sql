@@ -1,0 +1,1 @@
+ALTER TABLE "Task" ADD COLUMN "estimatedHours" REAL NOT NULL DEFAULT 1;

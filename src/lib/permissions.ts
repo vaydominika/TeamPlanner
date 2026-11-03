@@ -1,11 +1,11 @@
-import type { Project, ProjectTask, Team, User } from "../types.js"
+import type { Project, ProjectTask, User } from "../types.js"
 
 export function canViewProject(user: User, project: Project) {
   return project.managerId === user.id || project.memberIds.includes(user.id)
 }
 
-export function canCreateProject(user: User, team: Team) {
-  return team.leaderId === user.id
+export function canCreateProject(user: User) {
+  return Boolean(user.id)
 }
 
 export function canManageProject(user: User, project: Project) {

@@ -5,9 +5,7 @@ import { ProjectDialog, type ProjectDraft } from "@/components/ProjectDialog"
 import { ProjectList } from "@/components/ProjectList"
 import { TaskDialog, type TaskDialogMode, type TaskDraft } from "@/components/TaskDialog"
 import { TaskList } from "@/components/TaskList"
-import { TeamDialog, type TeamDraft } from "@/components/TeamDialog"
 import { TeamMembersDialog } from "@/components/TeamMembersDialog"
-import { TeamSwitcher } from "@/components/TeamSwitcher"
 import { Button } from "@/components/ui/button"
 import {
   ApiError,
@@ -42,12 +40,10 @@ function getErrorMessage(error: unknown) {
 
 export default function App() {
   const [session, setSession] = useState<SessionData | null>(null)
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
-  const [teamDialogOpen, setTeamDialogOpen] = useState(false)
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -65,21 +61,16 @@ export default function App() {
     setCalendarNotice(outcome === "connected" ? "A Google Naptár csatlakoztatva." : "A naptárcsatlakozás nem sikerült. Próbáld újra a Naptárkapcsolat ablakban.")
   }, [])
 
-  function applySession(nextSession: SessionData, preferredTeamId?: number | null, preferredProjectId?: number | null) {
+  function applySession(nextSession: SessionData, preferredProjectId?: number | null) {
     setSession(nextSession)
-    const teamId = nextSession.teams.some((team) => team.id === preferredTeamId)
-      ? preferredTeamId!
-      : nextSession.teams[0]?.id ?? null
-    setSelectedTeamId(teamId)
-    const teamProjects = nextSession.projects.filter((project) => project.teamId === teamId)
-    setSelectedProjectId(teamProjects.some((project) => project.id === preferredProjectId)
+    setSelectedProjectId(nextSession.projects.some((project) => project.id === preferredProjectId)
       ? preferredProjectId!
-      : teamProjects[0]?.id ?? null)
+      : nextSession.projects[0]?.id ?? null)
   }
 
-  async function loadSession(preferredTeamId = selectedTeamId, preferredProjectId = selectedProjectId) {
+  async function loadSession(preferredProjectId = selectedProjectId) {
     setErrorMessage("")
-    applySession(await getSession(), preferredTeamId, preferredProjectId)
+    applySession(await getSession(), preferredProjectId)
   }
 
   useEffect(() => {
@@ -98,19 +89,21 @@ export default function App() {
   }, [])
 
   const currentUser = session?.currentUser ?? null
-  const selectedTeam = session?.teams.find((team) => team.id === selectedTeamId) ?? null
-  const teamProjects = session?.projects.filter((project) => project.teamId === selectedTeamId) ?? []
-  const selectedProject = teamProjects.find((project) => project.id === selectedProjectId) ?? null
+  const selectedProject = session?.projects.find((project) => project.id === selectedProjectId) ?? null
+  const selectedTeam = session?.teams.find((team) => team.id === selectedProject?.teamId) ?? null
+  const creationTeam = selectedTeam?.leaderId === currentUser?.id
+    ? selectedTeam
+    : session?.teams.find((team) => team.leaderId === currentUser?.id) ?? null
+  const canCreateProjects = currentUser !== null && canCreateProject(currentUser)
   const selectedTasks = session?.tasks.filter((task) => task.projectId === selectedProjectId) ?? []
   const managesSelectedProject = currentUser && selectedProject ? canManageProject(currentUser, selectedProject) : false
   const taskAssignees = useMemo(() => {
-    if (!session || !selectedTeam) return []
-    return session.users.filter((user) => selectedTeam.memberIds.includes(user.id))
-  }, [selectedTeam, session])
+    if (!session || !selectedProject) return []
+    return session.users.filter((user) => selectedProject.memberIds.includes(user.id))
+  }, [selectedProject, session])
 
   function closeEditors() {
     setCalendarDialogOpen(false)
-    setTeamDialogOpen(false)
     setMembersDialogOpen(false)
     setProjectDialogOpen(false)
     setTaskDialogOpen(false)
@@ -122,7 +115,6 @@ export default function App() {
     if (error instanceof ApiError && error.status === 401) {
       closeEditors()
       setSession(null)
-      setSelectedTeamId(null)
       setSelectedProjectId(null)
     }
     setErrorMessage(getErrorMessage(error))
@@ -133,7 +125,7 @@ export default function App() {
       setIsAuthSubmitting(true)
       setErrorMessage("")
       await action()
-      await loadSession(null, null)
+      await loadSession(null)
     } catch (error) {
       handleRequestError(error)
     } finally {
@@ -149,38 +141,22 @@ export default function App() {
     } finally {
       closeEditors()
       setSession(null)
-      setSelectedTeamId(null)
       setSelectedProjectId(null)
     }
   }
 
-  async function runMutation(action: () => Promise<unknown>, teamId = selectedTeamId, projectId = selectedProjectId) {
+  async function runMutation(action: () => Promise<unknown>, projectId = selectedProjectId) {
     try {
       setErrorMessage("")
       await action()
-      await loadSession(teamId, projectId)
-    } catch (error) {
-      handleRequestError(error)
-    }
-  }
-
-  function selectTeam(teamId: number) {
-    setSelectedTeamId(teamId)
-    setSelectedProjectId(session?.projects.find((project) => project.teamId === teamId)?.id ?? null)
-  }
-
-  async function saveTeam(draft: TeamDraft) {
-    try {
-      setErrorMessage("")
-      const team = await createTeam(draft)
-      await loadSession(team.id, null)
+      await loadSession(projectId)
     } catch (error) {
       handleRequestError(error)
     }
   }
 
   function openCreateProject() {
-    if (!currentUser || !selectedTeam || !canCreateProject(currentUser, selectedTeam)) return
+    if (!currentUser || !canCreateProjects) return
     setEditingProject(null)
     setProjectDialogOpen(true)
   }
@@ -197,16 +173,20 @@ export default function App() {
   }
 
   async function saveProject(draft: ProjectDraft) {
-    if (!currentUser || !selectedTeam || !canCreateProject(currentUser, selectedTeam)) return
+    if (!currentUser) return
     if (editingProject) {
       if (!canManageProject(currentUser, editingProject)) return
-      await runMutation(() => updateProject(editingProject.id, draft), selectedTeam.id, editingProject.id)
+      await runMutation(() => updateProject(editingProject.id, draft), editingProject.id)
     } else {
+      if (!canCreateProjects) return
       try {
         setErrorMessage("")
-        const project = await createProject(selectedTeam.id, draft)
-        await loadSession(selectedTeam.id, project.id)
+        // Keep the existing team-backed permissions without a separate team setup step.
+        const team = creationTeam ?? await createTeam({ name: "Saját csapat", description: "A saját projektek résztvevői." })
+        const project = await createProject(team.id, draft)
+        await loadSession(project.id)
       } catch (error) {
+        await loadSession().catch(() => undefined)
         handleRequestError(error)
       }
     }
@@ -214,7 +194,7 @@ export default function App() {
 
   async function removeProject() {
     if (!currentUser || !selectedProject || !canManageProject(currentUser, selectedProject)) return
-    await runMutation(() => deleteProject(selectedProject.id), selectedTeamId, null)
+    await runMutation(() => deleteProject(selectedProject.id), null)
   }
 
   function openCreateTask() {
@@ -253,7 +233,7 @@ export default function App() {
 
   async function saveMembers(memberIds: string[]) {
     if (!currentUser || !selectedTeam || selectedTeam.leaderId !== currentUser.id) return
-    await runMutation(() => updateTeamMembers(selectedTeam.id, memberIds), selectedTeam.id, selectedProjectId)
+    await runMutation(() => updateTeamMembers(selectedTeam.id, memberIds))
   }
 
   if (isLoading) return <p className="py-16 text-center text-sm font-semibold text-muted-foreground">Adatok betöltése…</p>
@@ -281,7 +261,7 @@ export default function App() {
             <div className="text-right">
               <p className="text-sm font-bold">{currentUser.name}</p>
               <p className="text-xs font-semibold text-muted-foreground">
-                {selectedTeam?.leaderId === currentUser.id ? "Csapatvezető" : "Tag"}
+                {managesSelectedProject ? "Projektvezető" : "Csapattag"}
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={handleLogout}>Kijelentkezés</Button>
@@ -294,53 +274,36 @@ export default function App() {
         {calendarNotice && <p role="status" className="mb-5 rounded-xl border border-border bg-white/85 px-4 py-3 text-sm">{calendarNotice}</p>}
         {errorMessage && <div role="alert" className="mb-5 rounded-xl border border-[#e7b9c6] bg-[#fff4f7] px-4 py-3 text-sm font-semibold text-[#70434f]">{errorMessage}</div>}
 
-        {session.teams.length === 0 || !selectedTeam ? (
-          <div className="rounded-2xl border border-border bg-white/85 px-6 py-12 text-center">
-            <p className="font-bold">Még nincs csapatod.</p>
-            <Button type="button" className="mt-5" onClick={() => setTeamDialogOpen(true)}>Első csapat létrehozása</Button>
-          </div>
-        ) : (
-          <>
-            <TeamSwitcher
-              teams={session.teams}
-              value={selectedTeam.id}
-              canManage={selectedTeam.leaderId === currentUser.id}
-              onValueChange={selectTeam}
-              onCreate={() => setTeamDialogOpen(true)}
-              onManageMembers={openManageMembers}
+        <div className="grid gap-7 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <ProjectList
+            projects={session.projects}
+            tasks={session.tasks}
+            selectedProjectId={selectedProjectId}
+            canCreate={canCreateProjects}
+            onSelect={(projectId) => { closeEditors(); setSelectedProjectId(projectId) }}
+            onCreate={openCreateProject}
+          />
+          {selectedProject ? (
+            <TaskList
+              project={selectedProject}
+              tasks={selectedTasks}
+              workloadEntries={session.workloadEntries}
+              currentUser={currentUser}
+              canManageProject={managesSelectedProject}
+              onCreate={openCreateTask}
+              onEdit={openEditTask}
+              onManageProject={openManageProject}
+              onManageMembers={selectedTeam?.leaderId === currentUser.id ? openManageMembers : undefined}
             />
-            <div className="grid gap-7 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <ProjectList
-                projects={teamProjects}
-                tasks={session.tasks}
-                selectedProjectId={selectedProjectId}
-                canCreate={canCreateProject(currentUser, selectedTeam)}
-                onSelect={setSelectedProjectId}
-                onCreate={openCreateProject}
-              />
-              {selectedProject ? (
-                <TaskList
-                  project={selectedProject}
-                  tasks={selectedTasks}
-                  workloadEntries={session.workloadEntries}
-                  currentUser={currentUser}
-                  canManageProject={managesSelectedProject}
-                  onCreate={openCreateTask}
-                  onEdit={openEditTask}
-                  onManageProject={openManageProject}
-                />
-              ) : (
-                <div className="rounded-2xl border border-border bg-white/85 px-6 py-12 text-center">
-                  <p className="font-bold">Ebben a csapatban még nincs projekt.</p>
-                  {selectedTeam.leaderId === currentUser.id && <Button type="button" className="mt-5" onClick={openCreateProject}>Első projekt létrehozása</Button>}
-                </div>
-              )}
+          ) : (
+            <div className="rounded-2xl border border-border bg-white/85 px-6 py-12 text-center">
+              <p className="font-bold">Még nincs megjeleníthető projekted.</p>
+              {canCreateProjects && <Button type="button" className="mt-5" onClick={openCreateProject}>Első projekt létrehozása</Button>}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </main>
 
-      <TeamDialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen} onSubmit={saveTeam} />
       <CalendarDialog key={currentUser.id} open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen} />
       <ProjectDialog open={projectDialogOpen} project={editingProject} onOpenChange={setProjectDialogOpen} onSubmit={saveProject} onDelete={editingProject ? removeProject : undefined} />
 

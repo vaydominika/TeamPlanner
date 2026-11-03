@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { getWorkloadConflictTasks, OVERLOAD_TASK_LIMIT } from "@/lib/workload"
+import { getEstimatedWorkloadHours, getWorkloadConflictTasks, OVERLOAD_TASK_LIMIT } from "@/lib/workload"
 import { getUserLabel } from "@/lib/utils"
 import type { Project, ProjectTask, TaskStatus, User, WorkloadEntry } from "@/types"
 
-export type TaskDraft = Pick<ProjectTask, "name" | "description" | "deadline" | "status"> & { assigneeId: string }
+export type TaskDraft = Pick<ProjectTask, "name" | "description" | "deadline" | "estimatedHours" | "status"> & { assigneeId: string }
 export type TaskDialogMode = "create" | "manage" | "status"
 
 type TaskDialogProps = {
@@ -50,6 +50,7 @@ export function TaskDialog({
   const [description, setDescription] = useState("")
   const [assigneeId, setAssigneeId] = useState("")
   const [deadline, setDeadline] = useState("")
+  const [estimatedHours, setEstimatedHours] = useState("1")
   const [status, setStatus] = useState<TaskStatus>("Teendő")
 
   const isEditing = task !== null
@@ -60,6 +61,9 @@ export function TaskDialog({
   )
   const isOverloaded = conflictTasks.length >= OVERLOAD_TASK_LIMIT
   const assigneeName = assignees.find((user) => user.id === assigneeId)?.name ?? task?.assignee ?? ""
+  const estimatedHoursValue = Number(estimatedHours)
+  const workloadHours = getEstimatedWorkloadHours(conflictTasks)
+    + (status !== "Kész" && Number.isFinite(estimatedHoursValue) && estimatedHoursValue > 0 ? estimatedHoursValue : 0)
 
   useEffect(() => {
     if (!open) return
@@ -68,14 +72,16 @@ export function TaskDialog({
     setDescription(task?.description ?? "")
     setAssigneeId(task ? task.assigneeId ?? "" : assignees[0]?.id ?? "")
     setDeadline(task?.deadline ?? "")
+    setEstimatedHours(String(task?.estimatedHours ?? 1))
     setStatus(task?.status ?? "Teendő")
   }, [assignees, open, task])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim() || !description.trim() || !deadline || (canManageDetails && !assigneeId)) return
+    if (!Number.isFinite(estimatedHoursValue) || estimatedHoursValue < 0.5 || estimatedHoursValue > 1000 || !Number.isInteger(estimatedHoursValue * 2)) return
 
-    onSubmit({ name: name.trim(), description: description.trim(), assigneeId, deadline, status })
+    onSubmit({ name: name.trim(), description: description.trim(), assigneeId, deadline, estimatedHours: estimatedHoursValue, status })
     onOpenChange(false)
   }
 
@@ -151,11 +157,27 @@ export function TaskDialog({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="task-estimated-hours">Becsült munkaóra</Label>
+            <Input
+              id="task-estimated-hours"
+              type="number"
+              min={0.5}
+              max={1000}
+              step={0.5}
+              value={estimatedHours}
+              onChange={(event) => setEstimatedHours(event.target.value)}
+              disabled={!canManageDetails}
+              required
+            />
+            {assigneeId && deadline && <p role="status" className="text-xs text-muted-foreground">A felelős becsült terhelése a határidő napján és az azt megelőző hét napon: {workloadHours.toLocaleString("hu-HU")} óra, ezzel a feladattal együtt.</p>}
+          </div>
+
           {isOverloaded && (
             <div role="status" aria-live="polite" className="rounded-xl border border-[#e7b9c6] bg-[#fff4f7] p-4">
               <p className="text-sm font-bold text-foreground">Terhelési figyelmeztetés</p>
               <p className="mt-1 text-sm leading-relaxed text-[#70434f]">
-                {assigneeName} a választott határidő előtt túlterhelt lehet: már {conflictTasks.length} befejezetlen feladata esik az előző hét napra. A feladat ettől még menthető.
+                {assigneeName} a választott határidő előtt túlterhelt lehet: már {conflictTasks.length} befejezetlen feladata esik az előző hét napra, összesen {getEstimatedWorkloadHours(conflictTasks).toLocaleString("hu-HU")} becsült munkaórával. A feladat ettől még menthető.
               </p>
               <ul className="mt-3 space-y-2 border-t border-[#edced7] pt-3">
                 {conflictTasks.map((conflictTask) => {
@@ -173,6 +195,7 @@ export function TaskDialog({
                       </span>
                       {canViewConflictProject && ` · ${conflictProject?.name ?? "Ismeretlen projekt"}`}
                       {` · ${formatDeadline(conflictTask.deadline)}`}
+                      {` · ${conflictTask.estimatedHours.toLocaleString("hu-HU")} óra`}
                       {belongsToAnotherProject && (canViewConflictProject
                         ? " · Másik projekt, csak megtekinthető"
                         : " · Csak a terhelési összesítésben látható")}

@@ -22,7 +22,7 @@ export function ProjectList({ projects, tasks, selectedProjectId, canCreate, onS
           variant="outline"
           onClick={onCreate}
           disabled={!canCreate}
-          title={canCreate ? undefined : "Csak a csapat vezetője hozhat létre projektet."}
+          title={canCreate ? undefined : "Projekt létrehozásához jelentkezz be."}
         >
           Új projekt
         </Button>
@@ -31,7 +31,7 @@ export function ProjectList({ projects, tasks, selectedProjectId, canCreate, onS
       <div className="space-y-3">
         {projects.length === 0 && (
           <p className="rounded-xl border border-border bg-white/70 px-4 py-6 text-sm text-muted-foreground">
-            Ebben a csapatban még nincs projekt.
+            Még nincs megjeleníthető projekted.
           </p>
         )}
         {projects.map((project) => {

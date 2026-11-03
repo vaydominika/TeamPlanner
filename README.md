@@ -42,4 +42,6 @@ A változáshoz Prisma-migráció is tartozik: `20261013120000_add_integrations`
 
 Ellenőrzés: `npm test`, `npm run lint`, `npm run build`.
 
+A feladatoknál becsült munkaóra is megadható. A `20261103120000_add_estimated_hours` migráció a régi feladatokhoz egyórás alapértéket ad. Frissítés: `npx tsx prisma/setup.ts`, majd `npm run db:generate`; az adatbázis-kliens generálása előtt állítsd le a futó backendet.
+
 A megjelenítési név regisztrációkor nem egyedi, az e-mail-cím igen. A `20261013130000_allow_duplicate_user_names` migráció a feladatfelelősöket azonosítóhoz köti, és megőrzi a meglévő kiosztásokat; a fenti helyi frissítési parancsok ezt is alkalmazzák.

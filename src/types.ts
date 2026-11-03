@@ -29,6 +29,7 @@ export type ProjectTask = {
   assignee: string
   assigneeId: string | null
   deadline: string
+  estimatedHours: number
   status: TaskStatus
 }
 
@@ -37,6 +38,7 @@ export type WorkloadEntry = {
   assignee: string
   assigneeId: string | null
   deadline: string
+  estimatedHours: number
   status: TaskStatus
   projectId: number | null
   name: string | null

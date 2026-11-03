@@ -27,6 +27,7 @@ type TaskListProps = {
   onCreate: () => void
   onEdit: (task: ProjectTask) => void
   onManageProject: () => void
+  onManageMembers?: () => void
 }
 
 export function TaskList({
@@ -38,6 +39,7 @@ export function TaskList({
   onCreate,
   onEdit,
   onManageProject,
+  onManageMembers,
 }: TaskListProps) {
   return (
     <section aria-labelledby="tasks-heading" className="min-w-0">
@@ -53,6 +55,7 @@ export function TaskList({
             )}
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-center">
+            {onManageMembers && <Button variant="outline" onClick={onManageMembers}>Csapattagok</Button>}
             {canManageProject && (
               <Button variant="outline" onClick={onManageProject}>Projekt kezelése</Button>
             )}
@@ -97,7 +100,25 @@ export function TaskList({
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <h3 className="font-bold leading-snug">{task.name}</h3>
+                        <div className="flex min-w-0 items-start gap-1">
+                          <h3 className="min-w-0 break-words py-1.5 font-bold leading-snug">{task.name}</h3>
+                          {canChangeTask && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                              aria-label={`${task.name} – ${canManageProject ? "Feladat szerkesztése" : "Állapot módosítása"}`}
+                              title={canManageProject ? "Feladat szerkesztése" : "Állapot módosítása"}
+                              onClick={() => onEdit(task)}
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                                <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" />
+                                <path d="m14 5 5 5M4 15l5 5" />
+                              </svg>
+                            </Button>
+                          )}
+                        </div>
                         <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", statusStyles[task.status])}>
                           {task.status}
                         </span>
@@ -123,12 +144,11 @@ export function TaskList({
                           <dt className="text-xs font-semibold text-muted-foreground">Határidő</dt>
                           <dd className="mt-1 text-sm font-bold">{formatDeadline(task.deadline)}</dd>
                         </div>
+                        <div className="col-span-2 mt-2">
+                          <dt className="text-xs font-semibold text-muted-foreground">Becsült munkaóra</dt>
+                          <dd className="mt-1 text-sm font-bold">{task.estimatedHours.toLocaleString("hu-HU")} óra</dd>
+                        </div>
                       </dl>
-                      {canChangeTask && (
-                        <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => onEdit(task)}>
-                          {canManageProject ? "Szerkesztés" : "Állapot módosítása"}
-                        </Button>
-                      )}
                     </div>
                   </article>
                 )

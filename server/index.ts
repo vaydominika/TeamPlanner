@@ -339,6 +339,7 @@ app.get("/api/session", async (request, response) => {
         id: task.id,
         assignee: task.assignee,
         assigneeId: task.assigneeId,
+        estimatedHours: task.estimatedHours,
         deadline: task.deadline,
         status: task.status,
         projectId: isVisible ? task.projectId : null,
@@ -467,6 +468,10 @@ app.post("/api/projects/:projectId/tasks", async (request, response) => {
   const description = readText(request.body?.description, 500)
   const assigneeId = readText(request.body?.assigneeId, 100)
   const deadline = readDeadline(request.body?.deadline)
+  const estimatedHours = request.body?.estimatedHours
+  if (typeof estimatedHours !== "number" || !Number.isFinite(estimatedHours) || estimatedHours < 0.5 || estimatedHours > 1000 || !Number.isInteger(estimatedHours * 2)) {
+    return sendError(response, 400, "A becsült munkaóra 0,5 és 1000 közötti érték legyen, félórás lépésekben.")
+  }
   const status = readText(request.body?.status, 30)
   if (!name || !description || !assigneeId || !deadline || !status || !validStatuses.has(status)) {
     return sendError(response, 400, "A feladat adatai hiányosak vagy érvénytelenek.")
@@ -477,7 +482,7 @@ app.post("/api/projects/:projectId/tasks", async (request, response) => {
   }
 
   const task = await prisma.task.create({
-    data: { projectId, name, description, assigneeId, assignee: assignedUser.name, deadline, status },
+    data: { projectId, name, description, assigneeId, assignee: assignedUser.name, deadline, estimatedHours, status },
   })
   response.status(201).json(task)
 })
@@ -494,6 +499,10 @@ app.patch("/api/tasks/:taskId", async (request, response) => {
     const description = readText(request.body?.description, 500)
     const assigneeId = readText(request.body?.assigneeId, 100)
     const deadline = readDeadline(request.body?.deadline)
+    const estimatedHours = request.body?.estimatedHours
+    if (typeof estimatedHours !== "number" || !Number.isFinite(estimatedHours) || estimatedHours < 0.5 || estimatedHours > 1000 || !Number.isInteger(estimatedHours * 2)) {
+      return sendError(response, 400, "A becsült munkaóra 0,5 és 1000 közötti érték legyen, félórás lépésekben.")
+    }
     const status = readText(request.body?.status, 30)
     if (!name || !description || !assigneeId || !deadline || !status || !validStatuses.has(status)) {
       return sendError(response, 400, "A feladat adatai hiányosak vagy érvénytelenek.")
@@ -505,7 +514,7 @@ app.patch("/api/tasks/:taskId", async (request, response) => {
 
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
-      data: { name, description, assigneeId, assignee: assignedUser.name, deadline, status, calendarEvents: { updateMany: { where: {}, data: { dirty: true, revision: { increment: 1 } } } } },
+      data: { name, description, assigneeId, assignee: assignedUser.name, deadline, estimatedHours, status, calendarEvents: { updateMany: { where: {}, data: { dirty: true, revision: { increment: 1 } } } } },
     })
     return response.json(updatedTask)
   }

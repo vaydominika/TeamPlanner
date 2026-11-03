@@ -3,6 +3,10 @@ import type { WorkloadEntry } from "../types.js"
 export const OVERLOAD_TASK_LIMIT = 2
 const WORKLOAD_WINDOW_DAYS = 7
 
+export function getEstimatedWorkloadHours(tasks: WorkloadEntry[]) {
+  return tasks.reduce((hours, task) => hours + task.estimatedHours, 0)
+}
+
 function parseDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
 

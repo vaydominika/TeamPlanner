@@ -25,12 +25,6 @@ export function AuthForm({ errorMessage, isSubmitting, onLogin, onRegister }: Au
     setPassword("")
   }
 
-  function fillDemoAccount(account: "nora" | "eszter") {
-    setMode("login")
-    setEmail(`${account}@teamplanner.hu`)
-    setPassword("demo1234")
-  }
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (mode === "login") {
@@ -116,19 +110,6 @@ export function AuthForm({ errorMessage, isSubmitting, onLogin, onRegister }: Au
               </Button>
             </form>
 
-            {mode === "login" && (
-              <div className="mt-6 border-t border-border pt-5">
-                <p className="mb-3 text-xs font-semibold text-muted-foreground">Bemutató fiók kitöltése</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => fillDemoAccount("nora")}>
-                    Nóra · Csapattag
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => fillDemoAccount("eszter")}>
-                    Eszter · Vezető
-                  </Button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

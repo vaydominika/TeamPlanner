@@ -30,7 +30,6 @@ export function TaskTools({ taskId }: { taskId: number }) {
           {busy === "calendar" ? "Szinkronizálás…" : "Naptárba szinkronizálás"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Az összefoglalás elküldi ennek a feladatnak az adatait a szöveges szolgáltatásnak.</p>
       {summary && <div role="status" className="rounded-xl border border-border bg-muted/40 p-3 text-sm leading-relaxed"><p className="mb-1 font-bold">Rövid összefoglaló</p>{summary}</div>}
       {message && <p role="status" className="text-sm text-[#46614e]">{message}</p>}
       {error && <p role="alert" className="text-sm text-[#874b5c]">{error}</p>}
